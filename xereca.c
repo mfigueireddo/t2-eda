@@ -30,6 +30,7 @@ void cisao(No* raiz, No* no);
 No* encontraPai(No* raiz, No* filho);
 void analiseCisao(Arvore* arvore, No* folha);
 void imprimeFolhas(No* atual);
+void imprimeChaves(No* no);
 
 int main(void){
 
@@ -41,10 +42,21 @@ int main(void){
     insere(arvore, 12);
     insere(arvore, 9);
     insere(arvore, 15);
-    imprime(arvore->raiz);
     insere(arvore, 20);
+    insere(arvore, 30);
+    insere(arvore, 11);
+    insere(arvore, 13);
+    insere(arvore, 6);
+    insere(arvore, 25);
+    insere(arvore, 35);
+    insere(arvore, 16);
+    insere(arvore, 17);
+    insere(arvore, 18);
+    insere(arvore, 19);
+    insere(arvore, 21);
+    insere(arvore, 22); // Problema
     imprime(arvore->raiz);
-    // imprimeFolhas(arvore->raiz);
+    imprimeFolhas(arvore->raiz);
 
     return 0;
 }
@@ -106,12 +118,12 @@ void imprime(No* no){
     printf("\n");
     if (!no->eh_folha){
         printf("Filhos: ");
-        for(int i=0; i<QTD_PTRS && no->filhos[i]!=NULL; i++){
+        for(int i=0; i<QTD_PTRS+1 && no->filhos[i]!=NULL; i++){
             printf("%p ", no->filhos[i]);
         }
         printf("\n");
         // Recursão para imprimir os filhos
-        for(int i=0; i<QTD_PTRS && no->filhos[i]!=NULL; i++){
+        for(int i=0; i<QTD_PTRS+1 && no->filhos[i]!=NULL; i++){
             imprime(no->filhos[i]);
         }
     }
@@ -215,7 +227,6 @@ No* cisaoRaiz(No* raiz){
 }
 
 void cisao(No* raiz, No* no){
-
     // Nó que vai ficar "em cima" (já existe)
     No* no_pai = encontraPai(raiz, no);
     // Nó que vai ficar "na direita"
@@ -228,6 +239,7 @@ void cisao(No* raiz, No* no){
 
     // Sobe com a chave
     no_pai->chaves[no_pai->qtd_chaves] = chave_meio;
+    ordena(no_pai);
     no_pai->qtd_chaves++;
 
     // Pega a chave que vai pro lado
@@ -235,51 +247,70 @@ void cisao(No* raiz, No* no){
     no->chaves[2] = -1;
     no->qtd_chaves--;
 
-    // Joga pro novo nó a chave que subiu
-    novo_no->chaves[0] = chave_meio;
-    novo_no->qtd_chaves++;
-
-    // Joga a chave que sobrou pro nó novo
-    novo_no->chaves[1] = chave_direita;
-    novo_no->qtd_chaves++;
+    // Se o nó que vai sofrer a cisão for folha
+    if (no->eh_folha){
+        // Joga pro novo nó a chave que subiu
+        novo_no->chaves[0] = chave_meio;
+        novo_no->qtd_chaves++;
+        // Joga a chave que sobrou pro nó novo
+        novo_no->chaves[1] = chave_direita;
+        novo_no->qtd_chaves++;
+        // Ajusta as ligações de folha
+        if (no->prox != NULL) novo_no->prox = no->prox;
+        no->prox = novo_no;
+    }
+    else{
+        novo_no->eh_folha = 0;
+        // Joga pro novo nó a chave que sobrou
+        novo_no->chaves[0] = chave_direita;
+        novo_no->qtd_chaves++;
+        // Jogas os filhos do nó original pro novo nó
+        novo_no->filhos[0] = no->filhos[2];
+        no->filhos[2] = NULL;
+        novo_no->filhos[1] = no->filhos[3];
+        no->filhos[3] = NULL;
+    }
 
     // Ajusta as ligações pai-filho
-    no_pai->filhos[no_pai->qtd_chaves] = novo_no;
-
-    // Ajusta as ligações de folha
-    no->prox = novo_no;
+    // Encontra a posição do nó em que houve a cisão
+    int pos;
+    for(pos=0; pos<no_pai->qtd_chaves; pos++){
+        if (no_pai->filhos[pos] == no) break;
+    }
+    pos++;
+    // Move o ponteiro no pai se for necessário
+    if (no_pai->filhos[pos] != NULL){
+        no_pai->filhos[pos+1] = no_pai->filhos[pos];
+        novo_no->prox = no_pai->filhos[pos+1];
+    }
+    // Atualiza a ligação para o novo nó
+    no_pai->filhos[pos] = novo_no;
+    ordena(no_pai);
 }
 
 No* encontraPai(No* atual, No* filho){
 
-    printf("\n!! Procurando pai no nó %p !! %d", atual, atual->eh_folha);
-
     if (atual->eh_folha == 1){
-        printf("\n!! Retornando NULL !!");
         return NULL;
     }
 
-    int i=0;
     // Procura no nó atual
-    while(i<QTD_PTRS && atual->filhos[i]!=NULL){
-        if (atual->filhos[i] == filho){
-            printf("\n!!Retornando pênis !!");
+    for(int i=0; i<QTD_PTRS; i++){
+        if(atual->filhos[i] == filho){
             return atual;
         }
-        i++;
     }
+
     // Aciona uma recursão que vai procurar nos filhos
-    i = 0;
-    No* aux;
-    if (!atual->eh_folha && i<atual->qtd_chaves){
-        printf("\n!! Acionando recursão !!");
-        aux = encontraPai(atual->filhos[i], filho);
-        if (aux != NULL){
-            printf("\n!! Retornando sexo !!");
-            return aux;
+    for (int i = 0; i < QTD_PTRS; i++) {
+        if (atual->filhos[i] != NULL) {
+            No* aux = encontraPai(atual->filhos[i], filho);
+            if (aux != NULL) {
+                return aux;  // Retorna o pai encontrado
+            }
         }
-        i++;
     }
+
     return NULL;
 }
 
@@ -325,4 +356,12 @@ void imprimeFolhas(No* atual){
         atual = atual->prox;
     }
 
+}
+
+void imprimeChaves(No* no){
+    printf("!! Chaves: ");
+    for(int i=0; i<no->qtd_chaves; i++){
+        printf("%d ", no->chaves[i]);
+    }
+    printf("!!");
 }
