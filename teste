@@ -1,0 +1,207 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+#define QTD_CHAVES 2
+#define QTD_PTRS 3
+
+struct No {
+    int* chaves;
+    int qtd_chaves;
+    struct No** filhos;
+    int eh_folha;
+    struct No* prox;
+};
+
+struct Arvore {
+    struct No* raiz;
+};
+
+typedef struct No No;
+typedef struct Arvore Arvore;
+
+// Funções de manipulação da árvore (já implementadas no código fornecido)
+Arvore* criaArvore(void);
+No* criaNo(void);
+void insere(Arvore* arvore, int chave);
+void imprime(No* no);
+No* encontraFolha(No* no, int chave);
+No* encontraPai(No* raiz, No* filho);
+void ordena(No* no);
+void analiseCisao(Arvore* arvore, No* folha);
+
+// Funções de remoção (por concatenação e redistribuição)
+void removeChave(Arvore* arvore, int chave);
+int removeRecursivo(No* no, int chave);
+void redistribuiOuConcatena(No* pai, int indice, int chave, int *removido);
+void concatenarNos(No* pai, int indice);
+void redistribuirNos(No* pai, int indice);
+No* busca(No* no, int chave);
+
+int main(void) {
+    Arvore* arvore = criaArvore();
+    insere(arvore, 8);
+    insere(arvore, 5);
+    insere(arvore, 10);
+    insere(arvore, 7);
+    insere(arvore, 12);
+    insere(arvore, 9);
+    insere(arvore, 15);
+    insere(arvore, 20);
+    insere(arvore, 30);
+    insere(arvore, 11);
+    insere(arvore, 13);
+    insere(arvore, 6);
+    insere(arvore, 25);
+    insere(arvore, 35);
+    insere(arvore, 16);
+    insere(arvore, 17);
+    insere(arvore, 18);
+    insere(arvore, 19);
+    insere(arvore, 21);
+    insere(arvore, 22); 
+    imprime(arvore->raiz);
+
+    // Remover uma chave
+    removeChave(arvore, 10);
+    imprime(arvore->raiz);
+
+    return 0;
+}
+
+// Função de remoção: chamada principal
+void removeChave(Arvore* arvore, int chave) {
+    int removido = removeRecursivo(arvore->raiz, chave);
+    if (!removido) {
+        printf("Chave %d não encontrada!\n", chave);
+    }
+}
+
+// Função recursiva de remoção
+int removeRecursivo(No* no, int chave) {
+    int removido = 0;
+
+    // Se for nó folha, basta remover a chave
+    if (no->eh_folha) {
+        for (int i = 0; i < no->qtd_chaves; i++) {
+            if (no->chaves[i] == chave) {
+                // Remover chave
+                for (int j = i; j < no->qtd_chaves - 1; j++) {
+                    no->chaves[j] = no->chaves[j + 1];
+                }
+                no->qtd_chaves--;
+                removido = 1;
+                break;
+            }
+        }
+    } else {
+        // Se não for folha, achar o nó onde a chave pode estar
+        for (int i = 0; i < no->qtd_chaves; i++) {
+            if (chave < no->chaves[i]) {
+                removido = removeRecursivo(no->filhos[i], chave);
+                break;
+            }
+        }
+        if (!removido) {
+            removido = removeRecursivo(no->filhos[no->qtd_chaves], chave);
+        }
+    }
+
+    if (removido) {
+        // Verificar se o nó ficou abaixo do limite após remoção
+        if (no->qtd_chaves < 1) {
+            No* pai = encontraPai(arvore->raiz, no);
+            redistribuiOuConcatena(pai, 0, chave, &removido);
+        }
+    }
+
+    return removido;
+}
+
+// Função para redistribuir ou concatenar os nós
+void redistribuiOuConcatena(No* pai, int indice, int chave, int *removido) {
+    if (pai == NULL) {
+        return;
+    }
+
+    // Caso em que o nó não tem filhos suficientes
+    if (pai->filhos[indice]->qtd_chaves < 1) {
+        concatenarNos(pai, indice);
+    } else {
+        redistribuirNos(pai, indice);
+    }
+}
+
+// Concatenar dois nós
+void concatenarNos(No* pai, int indice) {
+    No* no_esq = pai->filhos[indice];
+    No* no_dir = pai->filhos[indice + 1];
+
+    // Concatenar as chaves
+    for (int i = 0; i < no_dir->qtd_chaves; i++) {
+        no_esq->chaves[no_esq->qtd_chaves] = no_dir->chaves[i];
+        no_esq->qtd_chaves++;
+    }
+    no_esq->prox = no_dir->prox; // Ajusta a ligação de folhas
+
+    // Atualizar ponteiros dos filhos
+    if (!no_esq->eh_folha) {
+        for (int i = 0; i < no_dir->qtd_chaves; i++) {
+            no_esq->filhos[no_esq->qtd_chaves + i] = no_dir->filhos[i];
+        }
+    }
+
+    // Atualizar o pai
+    for (int i = indice; i < pai->qtd_chaves - 1; i++) {
+        pai->filhos[i] = pai->filhos[i + 1];
+    }
+
+    pai->qtd_chaves--;
+    free(no_dir);  // Liberar o nó que foi concatenado
+}
+
+// Redistribuir chaves entre os nós irmãos
+void redistribuirNos(No* pai, int indice) {
+    No* no_esq = pai->filhos[indice];
+    No* no_dir = pai->filhos[indice + 1];
+
+    // Ajustar a chave do pai
+    if (no_esq->qtd_chaves > no_dir->qtd_chaves) {
+        no_dir->chaves[no_dir->qtd_chaves] = pai->chaves[indice];
+        no_dir->qtd_chaves++;
+        pai->chaves[indice] = no_esq->chaves[no_esq->qtd_chaves - 1];
+        no_esq->qtd_chaves--;
+    } else {
+        no_esq->chaves[no_esq->qtd_chaves] = pai->chaves[indice];
+        no_esq->qtd_chaves++;
+        pai->chaves[indice] = no_dir->chaves[0];
+        for (int i = 0; i < no_dir->qtd_chaves - 1; i++) {
+            no_dir->chaves[i] = no_dir->chaves[i + 1];
+        }
+        no_dir->qtd_chaves--;
+    }
+}
+
+// Função de busca: retorna o ponteiro para o nó ou NULL
+No* busca(No* no, int chave) {
+    if (no == NULL) {
+        return NULL;
+    }
+
+    // Se for nó folha, procura diretamente
+    if (no->eh_folha) {
+        for (int i = 0; i < no->qtd_chaves; i++) {
+            if (no->chaves[i] == chave) {
+                return no;
+            }
+        }
+        return NULL;
+    }
+
+    // Se não for folha, desce pela árvore
+    for (int i = 0; i < no->qtd_chaves; i++) {
+        if (chave < no->chaves[i]) {
+            return busca(no->filhos[i], chave);
+        }
+    }
+    return busca(no->filhos[no->qtd_chaves], chave);
+}
