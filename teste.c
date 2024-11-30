@@ -32,6 +32,8 @@ void analiseCisao(Arvore* arvore, No* folha);
 void imprimeFolhas(No* atual);
 void imprimeChaves(No* no);
 void delete_key(Arvore* arvore, int chave);
+No* buscaChave(Arvore* arvore, int chave);
+
 
 int main(void){
 
@@ -55,14 +57,40 @@ int main(void){
     insere(arvore, 18);
     insere(arvore, 19);
     insere(arvore, 21);
-    insere(arvore, 22); // Problema
+    insere(arvore, 22);
     imprime(arvore->raiz);
     imprimeFolhas(arvore->raiz);
+
+    printf("\n\n** Testando a busca antes de remover a chave 10 **\n\n");
+
+    No* no_encontrado = buscaChave(arvore, 10);
+
+    if (no_encontrado) {
+        printf("Chave %d encontrada no endereco %p com chaves: ", 10, no_encontrado);
+        imprimeChaves(no_encontrado);
+        printf("\n");
+    } else {
+        printf("Chave %d nao encontrada na arvore.\n", 10);
+    }
+
     printf("\n\nRemovendo chave 10...\n\n");
     delete_key(arvore, 10);
     printf("\n\nÁrvore B+ apos remover 10:\n\n");
     imprime(arvore->raiz);
     imprimeFolhas(arvore->raiz);
+
+    printf("\n\n** Testando a busca apos remover a chave 10 **\n\n");
+
+    no_encontrado = buscaChave(arvore, 10);
+
+    if (no_encontrado) {
+        printf("Chave %d encontrada no endereco %p com chaves: ", 10, no_encontrado);
+        imprimeChaves(no_encontrado);
+        printf("\n");
+    } else {
+        printf("Chave %d nao encontrada na arvore.\n", 10);
+    }
+
 
     return 0;
 }
@@ -493,3 +521,26 @@ void delete_key(Arvore* arvore, int chave) {
 
     printf("Chave %d removida.\n", chave);
 }
+
+No* buscaChave(Arvore* arvore, int chave) {
+    if (!arvore || !arvore->raiz) {
+        return NULL; // Árvore vazia
+    }
+
+    // Encontra a folha onde a chave pode estar
+    No* folha = encontraFolha(arvore->raiz, chave);
+
+    if (!folha) {
+        return NULL; // Nenhuma folha encontrada
+    }
+
+    // Verifica se a chave está presente na folha encontrada
+    for (int i = 0; i < folha->qtd_chaves; i++) {
+        if (folha->chaves[i] == chave) {
+            return folha; // Retorna o nó contendo a chave
+        }
+    }
+
+    return NULL; // Chave não encontrada
+}
+
