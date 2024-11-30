@@ -61,36 +61,12 @@ int main(void){
     imprime(arvore->raiz);
     imprimeFolhas(arvore->raiz);
 
-    printf("\n\n** Testando a busca antes de remover a chave 10 **\n\n");
-
-    No* no_encontrado = buscaChave(arvore, 10);
-
-    if (no_encontrado) {
-        printf("Chave %d encontrada no endereco %p com chaves: ", 10, no_encontrado);
-        imprimeChaves(no_encontrado);
-        printf("\n");
-    } else {
-        printf("Chave %d nao encontrada na arvore.\n", 10);
-    }
-
+    
     printf("\n\nRemovendo chave 10...\n\n");
     delete_key(arvore, 10);
     printf("\n\nÁrvore B+ apos remover 10:\n\n");
     imprime(arvore->raiz);
     imprimeFolhas(arvore->raiz);
-
-    printf("\n\n** Testando a busca apos remover a chave 10 **\n\n");
-
-    no_encontrado = buscaChave(arvore, 10);
-
-    if (no_encontrado) {
-        printf("Chave %d encontrada no endereco %p com chaves: ", 10, no_encontrado);
-        imprimeChaves(no_encontrado);
-        printf("\n");
-    } else {
-        printf("Chave %d nao encontrada na arvore.\n", 10);
-    }
-
 
     return 0;
 }
@@ -400,127 +376,6 @@ void imprimeChaves(No* no){
     printf("!!");
 }
 
-void delete_key(Arvore* arvore, int chave) {
-    // Encontra a folha que pode conter a chave
-    No* folha = encontraFolha(arvore->raiz, chave);
-    
-    if (!folha) {
-        printf("Chave %d nao encontrada.\n", chave);
-        return;
-    }
-
-    // Verifica se a chave está presente no nó folha
-    int i, encontrou = 0;
-    for (i = 0; i < folha->qtd_chaves; i++) {
-        if (folha->chaves[i] == chave) {
-            encontrou = 1;
-            break;
-        }
-    }
-
-    if (!encontrou) {
-        printf("Chave %d nao encontrada.\n", chave);
-        return;
-    }
-
-    // Remove a chave do nó
-    for (int j = i; j < folha->qtd_chaves - 1; j++) {
-        folha->chaves[j] = folha->chaves[j + 1];
-    }
-    folha->chaves[folha->qtd_chaves - 1] = -1; // Marca o espaço como vazio
-    folha->qtd_chaves--;
-
-    // Caso especial: Se a folha for a raiz e ficar vazia
-    if (folha == arvore->raiz && folha->qtd_chaves == 0) {
-        free(folha);
-        arvore->raiz = NULL;
-        printf("Arvore esvaziada.\n");
-        return;
-    }
-
-    // Analisa necessidade de redistribuição ou fusão
-    if (folha->qtd_chaves < (QTD_CHAVES + 1) / 2) {
-        No* pai = encontraPai(arvore->raiz, folha);
-
-        if (!pai) {
-            printf("Erro: No sem pai encontrado.\n");
-            return;
-        }
-
-        // Procura o nó vizinho para fusão ou redistribuição
-        No* vizinho = NULL;
-        int pos_vizinho = -1;
-
-        for (i = 0; i <= pai->qtd_chaves; i++) {
-            if (pai->filhos[i] == folha) {
-                pos_vizinho = i > 0 ? i - 1 : i + 1;
-                vizinho = pai->filhos[pos_vizinho];
-                break;
-            }
-        }
-
-        if (!vizinho) {
-            printf("Erro: Vizinho nao encontrado.\n");
-            return;
-        }
-
-        // Fusões
-        if (vizinho->qtd_chaves + folha->qtd_chaves <= QTD_CHAVES) {
-            // Movendo chaves da folha para o vizinho
-            for (i = 0; i < folha->qtd_chaves; i++) {
-                vizinho->chaves[vizinho->qtd_chaves] = folha->chaves[i];
-                vizinho->qtd_chaves++;
-            }
-
-            // Ajusta o encadeamento de folhas, se aplicável
-            if (folha->prox != NULL) {
-                vizinho->prox = folha->prox;
-            }
-
-            // Remove a entrada do pai
-            for (i = pos_vizinho; i < pai->qtd_chaves - 1; i++) {
-                pai->chaves[i] = pai->chaves[i + 1];
-                pai->filhos[i + 1] = pai->filhos[i + 2];
-            }
-            pai->chaves[pai->qtd_chaves - 1] = -1;
-            pai->filhos[pai->qtd_chaves] = NULL;
-            pai->qtd_chaves--;
-
-            // Libera memória da folha removida
-            free(folha);
-
-            // Caso o pai fique vazio, verifica se é a raiz
-            if (pai == arvore->raiz && pai->qtd_chaves == 0) {
-                arvore->raiz = vizinho;
-                free(pai);
-            }
-        }
-        // Redistribuições
-        else {
-            if (pos_vizinho < i) { // Vizinho à esquerda
-                for (i = folha->qtd_chaves; i > 0; i--) {
-                    folha->chaves[i] = folha->chaves[i - 1];
-                }
-                folha->chaves[0] = vizinho->chaves[vizinho->qtd_chaves - 1];
-                folha->qtd_chaves++;
-                vizinho->chaves[vizinho->qtd_chaves - 1] = -1;
-                vizinho->qtd_chaves--;
-                pai->chaves[pos_vizinho] = folha->chaves[0];
-            } else { // Vizinho à direita
-                folha->chaves[folha->qtd_chaves] = vizinho->chaves[0];
-                folha->qtd_chaves++;
-                for (i = 0; i < vizinho->qtd_chaves - 1; i++) {
-                    vizinho->chaves[i] = vizinho->chaves[i + 1];
-                }
-                vizinho->chaves[vizinho->qtd_chaves - 1] = -1;
-                vizinho->qtd_chaves--;
-                pai->chaves[pos_vizinho] = vizinho->chaves[0];
-            }
-        }
-    }
-
-    printf("Chave %d removida.\n", chave);
-}
 
 No* buscaChave(Arvore* arvore, int chave) {
     if (!arvore || !arvore->raiz) {
@@ -544,3 +399,71 @@ No* buscaChave(Arvore* arvore, int chave) {
     return NULL; // Chave não encontrada
 }
 
+void delete_key(Arvore* arvore, int chave) {
+    // Encontra a folha que pode conter a chave
+    No* folha = encontraFolha(arvore->raiz, chave);
+
+    if (!folha) {
+        printf("Chave %d nao encontrada.\n", chave);
+        return;
+    }
+
+    // Verifica se a chave está presente no nó folha
+    int i, encontrou = 0;
+    for (i = 0; i < folha->qtd_chaves; i++) {
+        if (folha->chaves[i] == chave) {
+            encontrou = 1;
+            break;
+        }
+    }
+
+    if (!encontrou) {
+        printf("Chave %d nao encontrada.\n", chave);
+        return;
+    }
+
+    // Remove a chave do nó folha
+    for (int j = i; j < folha->qtd_chaves - 1; j++) {
+        folha->chaves[j] = folha->chaves[j + 1];
+    }
+    folha->chaves[folha->qtd_chaves - 1] = -1; // Marca o espaço como vazio
+    folha->qtd_chaves--;
+
+    // Caso especial: Se a folha for a raiz e ficar vazia
+    if (folha == arvore->raiz && folha->qtd_chaves == 0) {
+        free(folha);
+        arvore->raiz = NULL;
+        printf("Arvore esvaziada.\n");
+        return;
+    }
+
+    // Remove a chave do nó interno (se necessário)
+    No* pai = encontraPai(arvore->raiz, folha);
+    while (pai) {
+        encontrou = 0;
+        for (i = 0; i < pai->qtd_chaves; i++) {
+            if (pai->chaves[i] == chave) {
+                encontrou = 1;
+                break;
+            }
+        }
+        if (encontrou) {
+            // Remove a chave do nó interno
+            for (int j = i; j < pai->qtd_chaves - 1; j++) {
+                pai->chaves[j] = pai->chaves[j + 1];
+            }
+            pai->chaves[pai->qtd_chaves - 1] = -1; // Marca o espaço como vazio
+            pai->qtd_chaves--;
+
+            // Verifica se o pai ficou vazio e precisa ser ajustado
+            if (pai->qtd_chaves == 0 && pai == arvore->raiz) {
+                arvore->raiz = pai->filhos[0];
+                free(pai);
+                break;
+            }
+        }
+        pai = encontraPai(arvore->raiz, pai);
+    }
+
+    printf("\n** Chave %d removida **\n", chave);
+}
