@@ -3,9 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define MIN_DEGREE                                         \
-    3 // Minimum degree (defines the range for number of
-      // keys)
+#define MIN_DEGREE  2 // Minimum degree (defines the range for number of keys)
 
 typedef struct Node {
     // Array of keys
@@ -439,17 +437,29 @@ int main()
 {
     BTree* btree = createBTree(MIN_DEGREE);
 
-    // Insert elements into the B+ tree
-    insert(btree, 2);
-    insert(btree, 4);
-    insert(btree, 7);
+    insert(btree, 8);
+    insert(btree, 5);
     insert(btree, 10);
+    insert(btree, 7);
+    insert(btree, 12);
+    insert(btree, 9);
+    insert(btree, 15);
+    insert(btree, 20);
+    insert(btree, 30);
+    insert(btree, 11);
+    insert(btree, 13);
+    insert(btree, 6);
+    insert(btree, 25);
+    insert(btree, 35);
+    insert(btree, 16);
     insert(btree, 17);
+    insert(btree, 18);
+    insert(btree, 19);
     insert(btree, 21);
-    insert(btree, 28);
+    insert(btree, 22);
 
     // Print the B+ tree
-    printf("Arvore B+ apos insercao:\n\n");
+    printf("btree B+ apos insercao:\n\n");
     display(btree->root);
     printf("\n");
 
@@ -469,7 +479,7 @@ int main()
     deleteKey(btree, 17);
 
     // Print the B+ tree after deletion
-    printf("Arvore apos chave deletada:\n\n");
+    printf("btree apos chave deletada:\n\n");
     display(btree->root);
     printf("\n");
 
