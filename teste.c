@@ -33,8 +33,9 @@ void imprimeFolhas(No* atual);
 void imprimeChaves(No* no);
 void delete_key(Arvore* arvore, int chave);
 No* buscaChave(Arvore* arvore, int chave);
-void ajustaNosInternos(Arvore* arvore, No* no, int chave_removida);
-void realizaFusaoOuRedistribuicao(Arvore* arvore, No* no);
+void ajustaNosPosRemocao(Arvore* arvore, No* no);
+void redistribuiChaves(No* pai, No* no, No* vizinho, int indiceNo, int indiceVizinho);
+void fundeNos(Arvore* arvore, No* pai, No* no, No* vizinho, int indiceNo, int indiceVizinho);
 
 
 int main(void){
@@ -402,7 +403,7 @@ No* buscaChave(Arvore* arvore, int chave) {
 }
 
 void delete_key(Arvore* arvore, int chave) {
-    // Encontra a folha onde a chave pode estar
+    // Encontra o nó folha que contém a chave
     No* folha = encontraFolha(arvore->raiz, chave);
 
     if (!folha) {
@@ -410,7 +411,7 @@ void delete_key(Arvore* arvore, int chave) {
         return;
     }
 
-    // Verifica se a chave está na folha
+    // Remove a chave da folha
     int i, encontrou = 0;
     for (i = 0; i < folha->qtd_chaves; i++) {
         if (folha->chaves[i] == chave) {
@@ -428,137 +429,135 @@ void delete_key(Arvore* arvore, int chave) {
     for (int j = i; j < folha->qtd_chaves - 1; j++) {
         folha->chaves[j] = folha->chaves[j + 1];
     }
-    folha->chaves[folha->qtd_chaves - 1] = -1; // Marca o espaço como vazio
     folha->qtd_chaves--;
 
     printf("Chave %d removida da folha.\n", chave);
 
-    // Ajusta o nó interno, se necessário
-    ajustaNosInternos(arvore, folha, chave);
+    // Ajusta a árvore a partir do nó folha
+    ajustaNosPosRemocao(arvore, folha);
 }
 
-void ajustaNosInternos(Arvore* arvore, No* no, int chave_removida) {
-    No* pai = encontraPai(arvore->raiz, no);
-
-    while (pai) {
-        // Verifica se a chave removida está no nó pai
-        int i, encontrou = 0;
-        for (i = 0; i < pai->qtd_chaves; i++) {
-            if (pai->chaves[i] == chave_removida) {
-                encontrou = 1;
-                break;
-            }
-        }
-
-        if (encontrou) {
-            // Remove a chave do nó pai
-            for (int j = i; j < pai->qtd_chaves - 1; j++) {
-                pai->chaves[j] = pai->chaves[j + 1];
-            }
-            pai->chaves[pai->qtd_chaves - 1] = -1;
-            pai->qtd_chaves--;
-
-            printf("Chave %d removida do nó interno.\n", chave_removida);
-
-            // Verifica se o nó pai ficou vazio e precisa de ajustes
-            if (pai->qtd_chaves == 0 && pai == arvore->raiz) {
-                // A raiz agora aponta para o primeiro filho
-                arvore->raiz = pai->filhos[0];
-                free(pai);
-                printf("Raiz ajustada.\n");
-                return;
-            }
-
-            // Para outras situações, delega fusão ou redistribuição
-            if (pai->qtd_chaves < (QTD_CHAVES + 1) / 2) {
-                realizaFusaoOuRedistribuicao(arvore, pai);
-            }
-        }
-
-        // Move para o próximo nível
-        pai = encontraPai(arvore->raiz, pai);
+void ajustaNosPosRemocao(Arvore* arvore, No* no) {
+    // Caso especial: A folha era a raiz e ficou vazia
+    if (no == arvore->raiz && no->qtd_chaves == 0) {
+        free(no);
+        arvore->raiz = NULL;
+        printf("A árvore ficou vazia após a remoção.\n");
+        return;
     }
-}
 
-void realizaFusaoOuRedistribuicao(Arvore* arvore, No* no) {
+    // Se o nó ainda tem o número mínimo de chaves, nada a fazer
+    if (no->qtd_chaves >= (QTD_CHAVES + 1) / 2) {
+        return;
+    }
+
+    // Obtém o nó pai
     No* pai = encontraPai(arvore->raiz, no);
-
     if (!pai) {
         return; // Se não há pai, estamos na raiz
     }
 
-    // Encontra o vizinho mais próximo
-    No* vizinho = NULL;
-    int pos_vizinho = -1;
-
+    // Localiza o índice do nó atual no pai
+    int indiceNo = -1;
     for (int i = 0; i <= pai->qtd_chaves; i++) {
         if (pai->filhos[i] == no) {
-            pos_vizinho = i > 0 ? i - 1 : i + 1;
-            vizinho = pai->filhos[pos_vizinho];
+            indiceNo = i;
             break;
         }
     }
 
+    // Obtém o nó vizinho (à esquerda ou à direita)
+    No* vizinho = NULL;
+    int indiceVizinho = -1;
+    if (indiceNo > 0) { // Tenta o vizinho à esquerda
+        vizinho = pai->filhos[indiceNo - 1];
+        indiceVizinho = indiceNo - 1;
+    } else if (indiceNo < pai->qtd_chaves) { // Tenta o vizinho à direita
+        vizinho = pai->filhos[indiceNo + 1];
+        indiceVizinho = indiceNo + 1;
+    }
+
     if (!vizinho) {
-        printf("Erro: Não foi encontrado um vizinho válido.\n");
+        printf("Erro: Vizinho não encontrado.\n");
         return;
     }
 
-    // Caso de fusão
-    if (vizinho->qtd_chaves + no->qtd_chaves <= QTD_CHAVES) {
-        // Move todas as chaves do nó atual para o vizinho
+    // Tenta redistribuir as chaves
+    if (vizinho->qtd_chaves > (QTD_CHAVES + 1) / 2) {
+        redistribuiChaves(pai, no, vizinho, indiceNo, indiceVizinho);
+        return;
+    }
+
+    // Caso contrário, realiza a fusão dos nós
+    fundeNos(arvore, pai, no, vizinho, indiceNo, indiceVizinho);
+}
+
+void redistribuiChaves(No* pai, No* no, No* vizinho, int indiceNo, int indiceVizinho) {
+    if (indiceVizinho < indiceNo) { // Vizinho à esquerda
+        // Move a chave do pai para o nó atual
+        for (int i = no->qtd_chaves; i > 0; i--) {
+            no->chaves[i] = no->chaves[i - 1];
+        }
+        no->chaves[0] = pai->chaves[indiceVizinho];
+        no->qtd_chaves++;
+
+        // Atualiza o pai com a maior chave do vizinho
+        pai->chaves[indiceVizinho] = vizinho->chaves[vizinho->qtd_chaves - 1];
+        vizinho->qtd_chaves--;
+    } else { // Vizinho à direita
+        // Move a chave do pai para o nó atual
+        no->chaves[no->qtd_chaves] = pai->chaves[indiceNo];
+        no->qtd_chaves++;
+
+        // Atualiza o pai com a menor chave do vizinho
+        pai->chaves[indiceNo] = vizinho->chaves[0];
+        for (int i = 0; i < vizinho->qtd_chaves - 1; i++) {
+            vizinho->chaves[i] = vizinho->chaves[i + 1];
+        }
+        vizinho->qtd_chaves--;
+    }
+
+    printf("Redistribuição realizada.\n");
+}
+
+void fundeNos(Arvore* arvore, No* pai, No* no, No* vizinho, int indiceNo, int indiceVizinho) {
+    if (indiceVizinho < indiceNo) { // Funde com o vizinho à esquerda
+        vizinho->chaves[vizinho->qtd_chaves] = pai->chaves[indiceVizinho];
+        vizinho->qtd_chaves++;
         for (int i = 0; i < no->qtd_chaves; i++) {
             vizinho->chaves[vizinho->qtd_chaves] = no->chaves[i];
             vizinho->qtd_chaves++;
         }
-
-        // Remove o nó atual do pai
-        for (int i = 0; i < pai->qtd_chaves; i++) {
-            if (pai->filhos[i] == no) {
-                for (int j = i; j < pai->qtd_chaves; j++) {
-                    pai->filhos[j] = pai->filhos[j + 1];
-                    pai->chaves[j] = pai->chaves[j + 1];
-                }
-                pai->filhos[pai->qtd_chaves] = NULL;
-                pai->qtd_chaves--;
-                break;
-            }
+        // Ajusta os filhos do pai
+        for (int i = indiceVizinho; i < pai->qtd_chaves - 1; i++) {
+            pai->chaves[i] = pai->chaves[i + 1];
+            pai->filhos[i + 1] = pai->filhos[i + 2];
         }
-
-        free(no);
-        printf("Fusão realizada.\n");
-
-        // Se o pai ficou com poucos elementos, ajusta
-        if (pai->qtd_chaves < (QTD_CHAVES + 1) / 2) {
-            realizaFusaoOuRedistribuicao(arvore, pai);
-        }
-    } else {
-        // Caso de redistribuição
-        if (pos_vizinho < pai->qtd_chaves) {
-            // Pega uma chave do vizinho e move para o nó atual
-            no->chaves[no->qtd_chaves] = pai->chaves[pos_vizinho];
+    } else { // Funde com o vizinho à direita
+        no->chaves[no->qtd_chaves] = pai->chaves[indiceNo];
+        no->qtd_chaves++;
+        for (int i = 0; i < vizinho->qtd_chaves; i++) {
+            no->chaves[no->qtd_chaves] = vizinho->chaves[i];
             no->qtd_chaves++;
-            pai->chaves[pos_vizinho] = vizinho->chaves[0];
-
-            // Remove a chave do vizinho
-            for (int i = 0; i < vizinho->qtd_chaves - 1; i++) {
-                vizinho->chaves[i] = vizinho->chaves[i + 1];
-            }
-            vizinho->chaves[vizinho->qtd_chaves - 1] = -1;
-            vizinho->qtd_chaves--;
-        } else {
-            // Redistribuição para o lado oposto
-            for (int i = no->qtd_chaves; i > 0; i--) {
-                no->chaves[i] = no->chaves[i - 1];
-            }
-            no->chaves[0] = pai->chaves[pos_vizinho];
-            no->qtd_chaves++;
-            pai->chaves[pos_vizinho] = vizinho->chaves[vizinho->qtd_chaves - 1];
-            vizinho->chaves[vizinho->qtd_chaves - 1] = -1;
-            vizinho->qtd_chaves--;
         }
-
-        printf("Redistribuição realizada.\n");
+        // Ajusta os filhos do pai
+        for (int i = indiceNo; i < pai->qtd_chaves - 1; i++) {
+            pai->chaves[i] = pai->chaves[i + 1];
+            pai->filhos[i + 1] = pai->filhos[i + 2];
+        }
     }
+
+    pai->qtd_chaves--;
+
+    // Se o pai ficou vazio, ajusta a árvore
+    if (pai->qtd_chaves == 0 && pai == arvore->raiz) {
+        arvore->raiz = (indiceVizinho < indiceNo) ? vizinho : no;
+        free(pai);
+        printf("A raiz foi ajustada após a fusão.\n");
+    } else if (pai->qtd_chaves < (QTD_CHAVES + 1) / 2) {
+        ajustaNosPosRemocao(arvore, pai);
+    }
+
+    printf("Fusão realizada.\n");
 }
 
