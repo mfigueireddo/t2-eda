@@ -9,7 +9,6 @@ struct No{
     int qtd_chaves;
     struct No** filhos;
     int eh_folha;
-    struct No* prox;
 };
 
 struct Arvore{
@@ -29,9 +28,9 @@ No* cisaoRaiz(No* raiz);
 void cisao(No* raiz, No* no);
 No* encontraPai(No* raiz, No* filho);
 void analiseCisao(Arvore* arvore, No* folha);
-void imprimeFolhas(No* atual);
-void imprimeChaves(No* no);
 void delete_key(Arvore* arvore, int chave);
+int busca(No* no, int chave);
+
 
 int main(void){
 
@@ -55,14 +54,15 @@ int main(void){
     insere(arvore, 18);
     insere(arvore, 19);
     insere(arvore, 21);
-    insere(arvore, 22); // Problema
+    insere(arvore, 22);
+
+    // delete_key(arvore, 10);
+
     imprime(arvore->raiz);
-    imprimeFolhas(arvore->raiz);
-    printf("\n\nRemovendo chave 10...\n\n");
-    delete_key(arvore, 10);
-    printf("\n\nÁrvore B+ apos remover 10:\n\n");
-    imprime(arvore->raiz);
-    imprimeFolhas(arvore->raiz);
+
+    int resultado = busca(arvore->raiz, 22);
+    if (resultado != -1) printf("\nChave %d encontrada\n", resultado);
+    else printf("\nChave não encontrada\n");
 
     return 0;
 }
@@ -87,8 +87,6 @@ No* criaNo(void){
         novo_no->filhos[i] = NULL;
     }
     novo_no->eh_folha = 1;
-    novo_no->prox = NULL;
-
     return novo_no;
 }
 
@@ -145,17 +143,6 @@ No* encontraFolha(No* no, int chave){
         }  
         // Redirecina para um nó à direita de alguma chave
         return encontraFolha(no->filhos[i], chave);
-    }
-    return no;
-}
-
-No* encontraFolhaAntigo(No* no, int chave){
-    int i;
-    while(!no->eh_folha){
-        for(i=0; i<no->qtd_chaves; i++){
-            if(chave < no->chaves[i] && no->filhos[i]!=NULL) no = no->filhos[i];
-        }
-        no = no->filhos[i];
     }
     return no;
 }
@@ -225,10 +212,6 @@ No* cisaoRaiz(No* raiz){
     nova_raiz->filhos[0] = raiz;
     nova_raiz->filhos[1] = novo_no;
 
-    // Ajusta as ligações de folha
-    if (raiz->eh_folha) raiz->prox = novo_no;
-    // Só vai criar uma nova ligação se a raiz antiga for folha
-
     return nova_raiz;
 }
 
@@ -261,9 +244,6 @@ void cisao(No* raiz, No* no){
         // Joga a chave que sobrou pro nó novo
         novo_no->chaves[1] = chave_direita;
         novo_no->qtd_chaves++;
-        // Ajusta as ligações de folha
-        if (no->prox != NULL) novo_no->prox = no->prox;
-        no->prox = novo_no;
     }
     else{
         novo_no->eh_folha = 0;
@@ -287,7 +267,6 @@ void cisao(No* raiz, No* no){
     // Move o ponteiro no pai se for necessário
     if (no_pai->filhos[pos] != NULL){
         no_pai->filhos[pos+1] = no_pai->filhos[pos];
-        novo_no->prox = no_pai->filhos[pos+1];
     }
     // Atualiza a ligação para o novo nó
     no_pai->filhos[pos] = novo_no;
@@ -320,16 +299,6 @@ No* encontraPai(No* atual, No* filho){
     return NULL;
 }
 
-No* encontraPaiAntigo(No* raiz, No* filho){ 
-    No* atual = raiz;
-    int i;
-    for(i=0; i<atual->qtd_chaves; i++){
-        if (atual->filhos[i] == filho) return atual;
-    }
-    if (atual->filhos[i] == filho) return atual;
-    return NULL;
-}
-
 void analiseCisao(Arvore* arvore, No* folha){
     if (folha->qtd_chaves > QTD_CHAVES){
         if (folha == arvore->raiz){
@@ -341,35 +310,6 @@ void analiseCisao(Arvore* arvore, No* folha){
             analiseCisao(arvore, no_pai);
         }
     }
-}
-
-void imprimeFolhas(No* atual){
-    printf("\n** Impressao das folhas **\n");
-    int i, tam;
-
-    while(!atual->eh_folha){
-        atual = atual->filhos[0];
-    }
-
-    while(atual!=NULL){
-        i = 0;
-        tam = atual->qtd_chaves;
-        printf("\nChaves do no %p ", atual);
-        while(i<tam){
-            printf("%d ", atual->chaves[i]);
-            i++;
-        }
-        atual = atual->prox;
-    }
-
-}
-
-void imprimeChaves(No* no){
-    printf("!! Chaves: ");
-    for(int i=0; i<no->qtd_chaves; i++){
-        printf("%d ", no->chaves[i]);
-    }
-    printf("!!");
 }
 
 void delete_key(Arvore* arvore, int chave) {
@@ -444,11 +384,6 @@ void delete_key(Arvore* arvore, int chave) {
                 vizinho->qtd_chaves++;
             }
 
-            // Ajusta o encadeamento de folhas, se aplicável
-            if (folha->prox != NULL) {
-                vizinho->prox = folha->prox;
-            }
-
             // Remove a entrada do pai
             for (i = pos_vizinho; i < pai->qtd_chaves - 1; i++) {
                 pai->chaves[i] = pai->chaves[i + 1];
@@ -491,5 +426,23 @@ void delete_key(Arvore* arvore, int chave) {
         }
     }
 
-    printf("Chave %d removida.\n", chave);
+    printf("\n** Chave %d removida **\n", chave);
+}
+
+int busca(No* no, int chave){
+    if (no == NULL) return -1;
+    int i;
+    for(i=0; i<no->qtd_chaves; i++){
+        // Redireciona para um nó à esquerda de alguma chave
+        if(chave < no->chaves[i] && no->filhos[i]!=NULL) return busca(no->filhos[i], chave);
+        // Se encontrar a cahve
+        if(chave == no->chaves[i]){
+            // Se não estiver na folha, procura no filho da direita
+            if (!no->eh_folha) return busca(no->filhos[i+1], chave);
+            // Achou
+            else return no->chaves[i];
+        }
+    }  
+    // Redirecina para um nó à direita de alguma chave
+    return busca(no->filhos[i], chave);
 }
