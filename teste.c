@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define MIN_DEGREE  2 // Minimum degree (defines the range for number of keys)
+#define MIN_DEGREE  3 // Minimum degree (defines the range for number of keys)
 
 typedef struct Node {
     // Array of keys
@@ -436,7 +436,7 @@ void merge(Node* node, int idx)
 int main()
 {
     BTree* btree = createBTree(MIN_DEGREE);
-
+    
     insert(btree, 8);
     insert(btree, 5);
     insert(btree, 10);
