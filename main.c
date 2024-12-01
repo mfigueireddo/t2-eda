@@ -404,15 +404,10 @@ void concatenacao(Arvore* arvore, No* no_pai, No* no_esquerda, No* no_direita, i
         // Arruma o pai
         // Se o pai for a primeira chave
         if (i == 0){
-            if (no_pai->qtd_chaves != 1){
-                no_pai->chaves[0] = no_pai->chaves[1];
-                no_pai->qtd_chaves--;
-                no_pai->filhos[1] = no_pai->filhos[2];
-                no_pai->filhos[2] = NULL;
-            }
-            else{
-                ???
-            }
+            no_pai->chaves[0] = no_pai->chaves[1];
+            no_pai->qtd_chaves--;
+            no_pai->filhos[1] = no_pai->filhos[2];
+            no_pai->filhos[2] = NULL;
         }
         // Se o pai for a segunda chave
         else if (i == 1){
