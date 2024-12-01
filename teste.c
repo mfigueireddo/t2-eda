@@ -1,546 +1,500 @@
+
+// C Program to Implement B+ Tree
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#define QTD_CHAVES 2
-#define QTD_PTRS 3
+#define MIN_DEGREE                                         \
+    3 // Minimum degree (defines the range for number of
+      // keys)
 
-struct No{
-    int* chaves;
-    int qtd_chaves;
-    struct No** filhos;
-    int eh_folha;
-    struct No* prox;
-};
+typedef struct Node {
+    // Array of keys
+    int* keys;
+    // Minimum degree (defines the range for number of keys)
+    int t;
+    // Array of child pointers
+    struct Node** children;
+    // Current number of keys
+    int n;
+    // To determine whether the node is leaf or not
+    bool leaf;
+    // Pointer to next leaf node
+    struct Node* next;
+} Node;
 
-struct Arvore{
-    struct No* raiz;
-};
+typedef struct BTree {
+    // Pointer to root node
+    Node* root;
+    // Minimum degree
+    int t;
+} BTree;
 
-typedef struct No No;
-typedef struct Arvore Arvore;
+// Function to create a new B+ tree node
+Node* createNode(int t, bool leaf)
+{
+    Node* newNode = (Node*)malloc(sizeof(Node));
+    newNode->t = t;
+    newNode->leaf = leaf;
+    newNode->keys = (int*)malloc((2 * t - 1) * sizeof(int));
+    newNode->children
+        = (Node**)malloc((2 * t) * sizeof(Node*));
+    newNode->n = 0;
+    newNode->next = NULL;
+    return newNode;
+}
 
-Arvore* criaArvore(void);
-No* criaNo(void);
-void insere(Arvore* arvore, int chave);
-void imprime(No* no);
-No* encontraFolha(No* no, int chave);   
-void ordena(No* no);
-No* cisaoRaiz(No* raiz);
-void cisao(No* raiz, No* no);
-No* encontraPai(No* raiz, No* filho);
-void analiseCisao(Arvore* arvore, No* folha);
-void imprimeFolhas(No* atual);
-void imprimeChaves(No* no);
-void delete_key(Arvore* arvore, int chave);
-No* buscaChave(Arvore* arvore, int chave);
+// Function to create a new B+ tree
+BTree* createBTree(int t)
+{
+    BTree* btree = (BTree*)malloc(sizeof(BTree));
+    btree->t = t;
+    btree->root = createNode(t, true);
+    return btree;
+}
+
+// Função para exibir os detalhes da árvore B+
+void display(Node* node)
+{
+    if (node == NULL)
+        return;
+
+    printf("endereco do no: %p\n", (void*)node);
+    printf("chaves: ");
+    for (int i = 0; i < node->n; i++) {
+        printf("%d ", node->keys[i]);
+    }
+    printf("\n");
+    printf("ponteiros: ");
+    for (int i = 0; i <= node->n; i++) {
+        printf("%p ", (void*)node->children[i]);
+    }
+    printf("\n");
+    printf("folha: %s\n\n", node->leaf ? "sim" : "nao");
+
+    // Recursively display children
+    if (!node->leaf) {
+        for (int i = 0; i <= node->n; i++) {
+            display(node->children[i]);
+        }
+    }
+}
 
 
-int main(void){
+// Function to search a key in the B+ tree
+bool search(Node* node, int key)
+{
+    int i = 0;
+    while (i < node->n && key > node->keys[i]) {
+        i++;
+    }
+    if (i < node->n && key == node->keys[i]) {
+        return true;
+    }
+    if (node->leaf) {
+        return false;
+    }
+    return search(node->children[i], key);
+}
 
-    Arvore* arvore = criaArvore();
-    insere(arvore, 8);
-    insere(arvore, 5);
-    insere(arvore, 10);
-    insere(arvore, 7);
-    insere(arvore, 12);
-    insere(arvore, 9);
-    insere(arvore, 15);
-    insere(arvore, 20);
-    insere(arvore, 30);
-    insere(arvore, 11);
-    insere(arvore, 13);
-    insere(arvore, 6);
-    insere(arvore, 25);
-    insere(arvore, 35);
-    insere(arvore, 16);
-    insere(arvore, 17);
-    insere(arvore, 18);
-    insere(arvore, 19);
-    insere(arvore, 21);
-    insere(arvore, 22);
-    imprime(arvore->raiz);
-    imprimeFolhas(arvore->raiz);
+// Function to split the child of a node during insertion
+void splitChild(Node* parent, int i, Node* child)
+{
+    int t = child->t;
+    Node* newChild = createNode(t, child->leaf);
+    newChild->n = t - 1;
 
-    printf("\n\n** Testando a busca antes de remover a chave 10 **\n\n");
-
-    No* no_encontrado = buscaChave(arvore, 10);
-
-    if (no_encontrado) {
-        printf("Chave %d encontrada no endereco %p com chaves: ", 10, no_encontrado);
-        imprimeChaves(no_encontrado);
-        printf("\n");
-    } else {
-        printf("Chave %d nao encontrada na arvore.\n", 10);
+    for (int j = 0; j < t - 1; j++) {
+        newChild->keys[j] = child->keys[j + t];
     }
 
-    printf("\n\nRemovendo chave 10...\n\n");
-    delete_key(arvore, 10);
-    printf("\n\nÁrvore B+ apos remover 10:\n\n");
-    imprime(arvore->raiz);
-    imprimeFolhas(arvore->raiz);
-
-    printf("\n\n** Testando a busca apos remover a chave 10 **\n\n");
-
-    no_encontrado = buscaChave(arvore, 10);
-
-    if (no_encontrado) {
-        printf("Chave %d encontrada no endereco %p com chaves: ", 10, no_encontrado);
-        imprimeChaves(no_encontrado);
-        printf("\n");
-    } else {
-        printf("Chave %d nao encontrada na arvore.\n", 10);
+    if (!child->leaf) {
+        for (int j = 0; j < t; j++) {
+            newChild->children[j] = child->children[j + t];
+        }
     }
 
+    child->n = t - 1;
+
+    for (int j = parent->n; j >= i + 1; j--) {
+        parent->children[j + 1] = parent->children[j];
+    }
+    parent->children[i + 1] = newChild;
+
+    for (int j = parent->n - 1; j >= i; j--) {
+        parent->keys[j + 1] = parent->keys[j];
+    }
+    parent->keys[i] = child->keys[t - 1];
+    parent->n += 1;
+}
+
+// Function to insert a non-full node
+void insertNonFull(Node* node, int key)
+{
+    int i = node->n - 1;
+
+    if (node->leaf) {
+        while (i >= 0 && node->keys[i] > key) {
+            node->keys[i + 1] = node->keys[i];
+            i--;
+        }
+        node->keys[i + 1] = key;
+        node->n += 1;
+    }
+    else {
+        while (i >= 0 && node->keys[i] > key) {
+            i--;
+        }
+        i++;
+        if (node->children[i]->n == 2 * node->t - 1) {
+            splitChild(node, i, node->children[i]);
+            if (node->keys[i] < key) {
+                i++;
+            }
+        }
+        insertNonFull(node->children[i], key);
+    }
+}
+
+// Function to insert a key into the B+ tree
+void insert(BTree* btree, int key)
+{
+    Node* root = btree->root;
+    if (root->n == 2 * btree->t - 1) {
+        Node* newRoot = createNode(btree->t, false);
+        newRoot->children[0] = root;
+        splitChild(newRoot, 0, root);
+        insertNonFull(newRoot, key);
+        btree->root = newRoot;
+    }
+    else {
+        insertNonFull(root, key);
+    }
+}
+
+// Function prototypes for helper functions used in
+// deleteKey
+void deleteKeyHelper(Node* node, int key);
+int findKey(Node* node, int key);
+void removeFromLeaf(Node* node, int idx);
+int getPredecessor(Node* node, int idx);
+void fill(Node* node, int idx);
+void borrowFromPrev(Node* node, int idx);
+void borrowFromNext(Node* node, int idx);
+void merge(Node* node, int idx);
+
+// Function for deleting a key from the B+ tree
+void deleteKey(BTree* btree, int key)
+{
+    Node* root = btree->root;
+
+    // Call a helper function to delete the key recursively
+    deleteKeyHelper(root, key);
+
+    // If root has no keys left and it has a child, make its
+    // first child the new root
+    if (root->n == 0 && !root->leaf) {
+        btree->root = root->children[0];
+        free(root);
+    }
+}
+
+// Helper function to recursively delete a key from the B+
+// tree
+void deleteKeyHelper(Node* node, int key)
+{
+    int idx = findKey(
+        node, key); // Find the index of the key in the node
+
+    // If key is present in this node
+    if (idx < node->n && node->keys[idx] == key) {
+        if (node->leaf) {
+            // If the node is a leaf, simply remove the key
+            removeFromLeaf(node, idx);
+        }
+        else {
+            // If the node is not a leaf, replace the key
+            // with its predecessor/successor
+            int predecessor = getPredecessor(node, idx);
+            node->keys[idx] = predecessor;
+            // Recursively delete the predecessor
+            deleteKeyHelper(node->children[idx],
+                            predecessor);
+        }
+    }
+    else {
+        // If the key is not present in this node, go down
+        // the appropriate child
+        if (node->leaf) {
+            // Key not found in the tree
+            printf("Key %d not found in the B+ tree.\n",
+                   key);
+            return;
+        }
+
+        bool isLastChild = (idx == node->n);
+
+        // If the child where the key is supposed to be lies
+        // has less than t keys, fill that child
+        if (node->children[idx]->n < node->t) {
+            fill(node, idx);
+        }
+
+        // If the last child has been merged, it must have
+        // merged with the previous child
+
+        // So, we need to recursively delete the key from
+        // the previous child
+        if (isLastChild && idx > node->n) {
+            deleteKeyHelper(node->children[idx - 1], key);
+        }
+        else {
+            deleteKeyHelper(node->children[idx], key);
+        }
+    }
+}
+// Function to find the index of a key in a node
+int findKey(Node* node, int key)
+{
+    int idx = 0;
+    while (idx < node->n && key > node->keys[idx]) {
+        idx++;
+    }
+    return idx;
+}
+
+// Function to remove a key from a leaf node
+void removeFromLeaf(Node* node, int idx)
+{
+    for (int i = idx + 1; i < node->n; ++i) {
+        node->keys[i - 1] = node->keys[i];
+    }
+    node->n--;
+}
+
+// Function to get the predecessor of a key in a non-leaf
+// node
+int getPredecessor(Node* node, int idx)
+{
+    Node* curr = node->children[idx];
+    while (!curr->leaf) {
+        curr = curr->children[curr->n];
+    }
+    return curr->keys[curr->n - 1];
+}
+
+// Function to fill up the child node present at the idx-th
+// position in the node node
+void fill(Node* node, int idx)
+{
+    if (idx != 0 && node->children[idx - 1]->n >= node->t) {
+        borrowFromPrev(node, idx);
+    }
+    else if (idx != node->n
+             && node->children[idx + 1]->n >= node->t) {
+        borrowFromNext(node, idx);
+    }
+    else {
+        if (idx != node->n) {
+            merge(node, idx);
+        }
+        else {
+            merge(node, idx - 1);
+        }
+    }
+}
+
+// Function to borrow a key from the previous child and move
+// it to the idx-th child
+void borrowFromPrev(Node* node, int idx)
+{
+    Node* child = node->children[idx];
+    Node* sibling = node->children[idx - 1];
+
+    // Move all keys in child one step ahead
+    for (int i = child->n - 1; i >= 0; --i) {
+        child->keys[i + 1] = child->keys[i];
+    }
+
+    // If child is not a leaf, move its child pointers one
+    // step ahead
+    if (!child->leaf) {
+        for (int i = child->n; i >= 0; --i) {
+            child->children[i + 1] = child->children[i];
+        }
+    }
+
+    // Setting child's first key equal to node's key[idx -
+    // 1]
+    child->keys[0] = node->keys[idx - 1];
+
+    // Moving sibling's last child as child's first child
+    if (!child->leaf) {
+        child->children[0] = sibling->children[sibling->n];
+    }
+
+    // Moving the key from the sibling to the parent
+    node->keys[idx - 1] = sibling->keys[sibling->n - 1];
+
+    // Incrementing and decrementing the key counts of child
+    // and sibling respectively
+    child->n += 1;
+    sibling->n -= 1;
+}
+
+// Function to borrow a key from the next child and move it
+// to the idx-th child
+void borrowFromNext(Node* node, int idx)
+{
+    Node* child = node->children[idx];
+    Node* sibling = node->children[idx + 1];
+
+    // Setting child's (t - 1)th key equal to node's
+    // key[idx]
+    child->keys[(child->n)] = node->keys[idx];
+
+    // If child is not a leaf, move its child pointers one
+    // step ahead
+    if (!child->leaf) {
+        child->children[(child->n) + 1]
+            = sibling->children[0];
+    }
+
+    // Setting node's idx-th key equal to sibling's first
+    // key
+    node->keys[idx] = sibling->keys[0];
+
+    // Moving all keys in sibling one step behind
+    for (int i = 1; i < sibling->n; ++i) {
+        sibling->keys[i - 1] = sibling->keys[i];
+    }
+
+    // If sibling is not a leaf, move its child pointers one
+    // step behind
+    if (!sibling->leaf) {
+        for (int i = 1; i <= sibling->n; ++i) {
+            sibling->children[i - 1] = sibling->children[i];
+        }
+    }
+
+    // Incrementing and decrementing the key counts of child
+    // and sibling respectively
+    child->n += 1;
+    sibling->n -= 1;
+}
+
+// Function to merge idx-th child of node with (idx + 1)-th
+// child of node
+void merge(Node* node, int idx)
+{
+    Node* child = node->children[idx];
+    Node* sibling = node->children[idx + 1];
+
+    // Pulling a key from the current node and inserting it
+    // into (t-1)th position of child
+    child->keys[child->n] = node->keys[idx];
+
+    // If child is not a leaf, move its child pointers one
+    // step ahead
+    if (!child->leaf) {
+        child->children[child->n + 1]
+            = sibling->children[0];
+    }
+
+    // Copying the keys from sibling to child
+    for (int i = 0; i < sibling->n; ++i) {
+        child->keys[i + child->n + 1] = sibling->keys[i];
+    }
+
+    // If child is not a leaf, copy the children pointers as
+    // well
+    if (!child->leaf) {
+        for (int i = 0; i <= sibling->n; ++i) {
+            child->children[i + child->n + 1]
+                = sibling->children[i];
+        }
+    }
+
+    // Move all keys after idx in the current node one step
+    // before, so as to fill the gap created by moving
+    // keys[idx] to child
+    for (int i = idx + 1; i < node->n; ++i) {
+        node->keys[i - 1] = node->keys[i];
+    }
+
+    // Move the child pointers after (idx + 1) in the
+    // current node one step before
+    for (int i = idx + 2; i <= node->n; ++i) {
+        node->children[i - 1] = node->children[i];
+    }
+
+    // Update the key count of child and current node
+    child->n += sibling->n + 1;
+    node->n--;
+
+    // Free the memory occupied by sibling
+    free(sibling);
+}
+
+int main()
+{
+    BTree* btree = createBTree(MIN_DEGREE);
+
+    // Insert elements into the B+ tree
+    insert(btree, 8);
+    insert(btree, 5);
+    insert(btree, 10);
+    insert(btree, 7);
+    insert(btree, 12);
+    insert(btree, 9);
+    insert(btree, 15);
+    insert(btree, 20);
+    insert(btree, 30);
+    insert(btree, 11);
+    insert(btree, 13);
+    insert(btree, 6);
+    insert(btree, 25);
+    insert(btree, 35);
+    insert(btree, 16);
+    insert(btree, 17);
+    insert(btree, 18);
+    insert(btree, 19);
+    insert(btree, 21);
+    insert(btree, 22);
+
+    // Print the B+ tree
+    printf("Arvore B+ apos insercao:\n\n");
+    display(btree->root);
+    printf("\n");
+
+    // Search for a key
+    int key_to_search = 17;
+    bool found = search(btree->root, key_to_search);
+
+    if (found) {
+        printf("Chave %d encontrada!\n\n", key_to_search);
+    }
+    else {
+        printf("Chave %d nao encontrada\n\n", key_to_search);
+    }
+
+    printf("Deletando chave 17:\n\n");
+    // Delete element from the B+ tree
+    deleteKey(btree, 17);
+
+    // Print the B+ tree after deletion
+    printf("Arvore apos chave deletada:\n\n");
+    display(btree->root);
+    printf("\n");
+
+    found = search(btree->root, key_to_search);
+
+    if (found) {
+        printf("Chave %d encontrada!\n\n", key_to_search);
+    }
+    else {
+        printf("Chave %d nao encontrada\n\n", key_to_search);
+    }
 
     return 0;
 }
-
-Arvore* criaArvore(void){
-    Arvore* nova_arvore = (Arvore*)malloc(sizeof(Arvore));
-    if (nova_arvore == NULL) exit(1);
-    nova_arvore->raiz = NULL;
-    return nova_arvore;
-}
-
-No* criaNo(void){
-    No* novo_no = (No*)malloc(sizeof(No));
-    if (novo_no == NULL) exit(1);
-    novo_no->chaves = (int*)malloc(sizeof(int)*QTD_CHAVES+1);
-    novo_no->qtd_chaves = 0;
-    for(int i=0; i<QTD_CHAVES+1; i++){
-        novo_no->chaves[i] = -1;
-    }
-    novo_no->filhos = (No**)malloc(sizeof(No*)*QTD_PTRS+1);
-    for(int i=0; i<QTD_PTRS+1; i++){
-        novo_no->filhos[i] = NULL;
-    }
-    novo_no->eh_folha = 1;
-    novo_no->prox = NULL;
-
-    return novo_no;
-}
-
-void insere(Arvore* arvore, int chave){
-    // Se a árvore estiver vazia
-    if (arvore->raiz == NULL){
-        arvore->raiz = criaNo();
-        arvore->raiz->chaves[0] = chave;
-        arvore->raiz->qtd_chaves++;
-    }
-    // Se a árvore não estiver vazia
-    else{
-        // Achar a folha em que a chave deve ser inserida
-        No* folha = encontraFolha(arvore->raiz, chave);
-        // A primeira posição vaga será dada por folha->qtd_chaves
-        folha->chaves[folha->qtd_chaves] = chave;
-        folha->qtd_chaves++;
-        // Ordenar o nó
-        ordena(folha);
-        // Se for necessário fazer uma cisão
-        analiseCisao(arvore, folha);
-    }
-    printf("** Chave %d inserida ** \n", chave);
-}
-
-void imprime(No* no){
-    if (no == NULL) return;
-    printf("\nEndereço do no: %p\n", no);
-    printf("Chaves: ");
-    for(int i=0; i<no->qtd_chaves; i++){
-        printf("%d ", no->chaves[i]);
-    }
-    printf("\n");
-    if (!no->eh_folha){
-        printf("Filhos: ");
-        for(int i=0; i<QTD_PTRS+1 && no->filhos[i]!=NULL; i++){
-            printf("%p ", no->filhos[i]);
-        }
-        printf("\n");
-        // Recursão para imprimir os filhos
-        for(int i=0; i<QTD_PTRS+1 && no->filhos[i]!=NULL; i++){
-            imprime(no->filhos[i]);
-        }
-    }
-}
-
-No* encontraFolha(No* no, int chave){
-    int i;
-    // Se o nó não for folha
-    if (!no->eh_folha){
-        for(i=0; i<no->qtd_chaves; i++){
-            // Redireciona para um nó à esquerda de alguma chave
-            if(chave < no->chaves[i] && no->filhos[i]!=NULL) return encontraFolha(no->filhos[i], chave);
-        }  
-        // Redirecina para um nó à direita de alguma chave
-        return encontraFolha(no->filhos[i], chave);
-    }
-    return no;
-}
-
-No* encontraFolhaAntigo(No* no, int chave){
-    int i;
-    while(!no->eh_folha){
-        for(i=0; i<no->qtd_chaves; i++){
-            if(chave < no->chaves[i] && no->filhos[i]!=NULL) no = no->filhos[i];
-        }
-        no = no->filhos[i];
-    }
-    return no;
-}
-
-void ordena(No* no){
-    int aux;
-    for(int i=0; i<no->qtd_chaves; i++){
-        for(int j=0; j<no->qtd_chaves-i-1; j++){
-            if (no->chaves[j] > no->chaves[j+1]){
-                aux = no->chaves[j];
-                no->chaves[j] = no->chaves[j+1];
-                no->chaves[j+1] = aux;
-            }
-        }
-    }
-}
-
-No* cisaoRaiz(No* raiz){
-
-    // Nó que vai ficar "em cima"
-    No* nova_raiz = criaNo();
-    // Nó que vai ficar "na direita"
-    No* novo_no = criaNo();
-
-    // Ajusta a configuração de folhas
-    nova_raiz->eh_folha = 0;
-    if (raiz->filhos[0] == NULL) raiz->eh_folha = 1;
-    // Só passar a ser folha se não tiver filhos
-
-    // Pega a chave que vai subir
-    int chave_meio = raiz->chaves[1];
-    raiz->chaves[1] = -1;
-    raiz->qtd_chaves--;
-
-    // Sobe com a chave
-    nova_raiz->chaves[0] = chave_meio;
-    nova_raiz->qtd_chaves++;
-
-    // Pega a chave que vai pro lado
-    int chave_direita = raiz->chaves[2];
-    raiz->chaves[2] = -1;
-    raiz->qtd_chaves--;
-
-    // Mexe com os filhos do novo nó
-    if (raiz->filhos[2] != NULL){
-        novo_no->eh_folha = 0;
-        novo_no->filhos[0] = raiz->filhos[2];
-        novo_no->filhos[1] = raiz->filhos[3];
-        raiz->filhos[2] = NULL;
-        raiz->filhos[3] = NULL;
-    }
-
-    // Joga as chaves pro novo nó se ele for folha
-    if (novo_no->eh_folha){
-        novo_no->chaves[0] = chave_meio;
-        novo_no->qtd_chaves++;
-        novo_no->chaves[1] = chave_direita;
-        novo_no->qtd_chaves++;
-    }
-    // Se não for nó, joga só a chave da direita
-    else{
-        novo_no->chaves[0] = chave_direita;
-        novo_no->qtd_chaves++;
-    }
-
-    // Ajusta as ligações pai-filho
-    nova_raiz->filhos[0] = raiz;
-    nova_raiz->filhos[1] = novo_no;
-
-    // Ajusta as ligações de folha
-    if (raiz->eh_folha) raiz->prox = novo_no;
-    // Só vai criar uma nova ligação se a raiz antiga for folha
-
-    return nova_raiz;
-}
-
-void cisao(No* raiz, No* no){
-    // Nó que vai ficar "em cima" (já existe)
-    No* no_pai = encontraPai(raiz, no);
-    // Nó que vai ficar "na direita"
-    No* novo_no = criaNo(); 
-
-    // Pega a chave que vai "subir"
-    int chave_meio = no->chaves[1];
-    no->chaves[1] = -1;
-    no->qtd_chaves--;
-
-    // Sobe com a chave
-    no_pai->chaves[no_pai->qtd_chaves] = chave_meio;
-    ordena(no_pai);
-    no_pai->qtd_chaves++;
-
-    // Pega a chave que vai pro lado
-    int chave_direita = no->chaves[2];
-    no->chaves[2] = -1;
-    no->qtd_chaves--;
-
-    // Se o nó que vai sofrer a cisão for folha
-    if (no->eh_folha){
-        // Joga pro novo nó a chave que subiu
-        novo_no->chaves[0] = chave_meio;
-        novo_no->qtd_chaves++;
-        // Joga a chave que sobrou pro nó novo
-        novo_no->chaves[1] = chave_direita;
-        novo_no->qtd_chaves++;
-        // Ajusta as ligações de folha
-        if (no->prox != NULL) novo_no->prox = no->prox;
-        no->prox = novo_no;
-    }
-    else{
-        novo_no->eh_folha = 0;
-        // Joga pro novo nó a chave que sobrou
-        novo_no->chaves[0] = chave_direita;
-        novo_no->qtd_chaves++;
-        // Jogas os filhos do nó original pro novo nó
-        novo_no->filhos[0] = no->filhos[2];
-        no->filhos[2] = NULL;
-        novo_no->filhos[1] = no->filhos[3];
-        no->filhos[3] = NULL;
-    }
-
-    // Ajusta as ligações pai-filho
-    // Encontra a posição do nó em que houve a cisão
-    int pos;
-    for(pos=0; pos<no_pai->qtd_chaves; pos++){
-        if (no_pai->filhos[pos] == no) break;
-    }
-    pos++;
-    // Move o ponteiro no pai se for necessário
-    if (no_pai->filhos[pos] != NULL){
-        no_pai->filhos[pos+1] = no_pai->filhos[pos];
-        novo_no->prox = no_pai->filhos[pos+1];
-    }
-    // Atualiza a ligação para o novo nó
-    no_pai->filhos[pos] = novo_no;
-    ordena(no_pai);
-}
-
-No* encontraPai(No* atual, No* filho){
-
-    if (atual->eh_folha == 1){
-        return NULL;
-    }
-
-    // Procura no nó atual
-    for(int i=0; i<QTD_PTRS; i++){
-        if(atual->filhos[i] == filho){
-            return atual;
-        }
-    }
-
-    // Aciona uma recursão que vai procurar nos filhos
-    for (int i = 0; i < QTD_PTRS; i++) {
-        if (atual->filhos[i] != NULL) {
-            No* aux = encontraPai(atual->filhos[i], filho);
-            if (aux != NULL) {
-                return aux;  // Retorna o pai encontrado
-            }
-        }
-    }
-
-    return NULL;
-}
-
-No* encontraPaiAntigo(No* raiz, No* filho){ 
-    No* atual = raiz;
-    int i;
-    for(i=0; i<atual->qtd_chaves; i++){
-        if (atual->filhos[i] == filho) return atual;
-    }
-    if (atual->filhos[i] == filho) return atual;
-    return NULL;
-}
-
-void analiseCisao(Arvore* arvore, No* folha){
-    if (folha->qtd_chaves > QTD_CHAVES){
-        if (folha == arvore->raiz){
-            arvore->raiz = cisaoRaiz(folha);
-        }
-        else{
-            cisao(arvore->raiz, folha);
-            No* no_pai = encontraPai(arvore->raiz, folha);
-            analiseCisao(arvore, no_pai);
-        }
-    }
-}
-
-void imprimeFolhas(No* atual){
-    printf("\n** Impressao das folhas **\n");
-    int i, tam;
-
-    while(!atual->eh_folha){
-        atual = atual->filhos[0];
-    }
-
-    while(atual!=NULL){
-        i = 0;
-        tam = atual->qtd_chaves;
-        printf("\nChaves do no %p ", atual);
-        while(i<tam){
-            printf("%d ", atual->chaves[i]);
-            i++;
-        }
-        atual = atual->prox;
-    }
-
-}
-
-void imprimeChaves(No* no){
-    printf("!! Chaves: ");
-    for(int i=0; i<no->qtd_chaves; i++){
-        printf("%d ", no->chaves[i]);
-    }
-    printf("!!");
-}
-
-void delete_key(Arvore* arvore, int chave) {
-    // Encontra a folha que pode conter a chave
-    No* folha = encontraFolha(arvore->raiz, chave);
-    
-    if (!folha) {
-        printf("Chave %d nao encontrada.\n", chave);
-        return;
-    }
-
-    // Verifica se a chave está presente no nó folha
-    int i, encontrou = 0;
-    for (i = 0; i < folha->qtd_chaves; i++) {
-        if (folha->chaves[i] == chave) {
-            encontrou = 1;
-            break;
-        }
-    }
-
-    if (!encontrou) {
-        printf("Chave %d nao encontrada.\n", chave);
-        return;
-    }
-
-    // Remove a chave do nó
-    for (int j = i; j < folha->qtd_chaves - 1; j++) {
-        folha->chaves[j] = folha->chaves[j + 1];
-    }
-    folha->chaves[folha->qtd_chaves - 1] = -1; // Marca o espaço como vazio
-    folha->qtd_chaves--;
-
-    // Caso especial: Se a folha for a raiz e ficar vazia
-    if (folha == arvore->raiz && folha->qtd_chaves == 0) {
-        free(folha);
-        arvore->raiz = NULL;
-        printf("Arvore esvaziada.\n");
-        return;
-    }
-
-    // Analisa necessidade de redistribuição ou fusão
-    if (folha->qtd_chaves < (QTD_CHAVES + 1) / 2) {
-        No* pai = encontraPai(arvore->raiz, folha);
-
-        if (!pai) {
-            printf("Erro: No sem pai encontrado.\n");
-            return;
-        }
-
-        // Procura o nó vizinho para fusão ou redistribuição
-        No* vizinho = NULL;
-        int pos_vizinho = -1;
-
-        for (i = 0; i <= pai->qtd_chaves; i++) {
-            if (pai->filhos[i] == folha) {
-                pos_vizinho = i > 0 ? i - 1 : i + 1;
-                vizinho = pai->filhos[pos_vizinho];
-                break;
-            }
-        }
-
-        if (!vizinho) {
-            printf("Erro: Vizinho nao encontrado.\n");
-            return;
-        }
-
-        // Fusões
-        if (vizinho->qtd_chaves + folha->qtd_chaves <= QTD_CHAVES) {
-            // Movendo chaves da folha para o vizinho
-            for (i = 0; i < folha->qtd_chaves; i++) {
-                vizinho->chaves[vizinho->qtd_chaves] = folha->chaves[i];
-                vizinho->qtd_chaves++;
-            }
-
-            // Ajusta o encadeamento de folhas, se aplicável
-            if (folha->prox != NULL) {
-                vizinho->prox = folha->prox;
-            }
-
-            // Remove a entrada do pai
-            for (i = pos_vizinho; i < pai->qtd_chaves - 1; i++) {
-                pai->chaves[i] = pai->chaves[i + 1];
-                pai->filhos[i + 1] = pai->filhos[i + 2];
-            }
-            pai->chaves[pai->qtd_chaves - 1] = -1;
-            pai->filhos[pai->qtd_chaves] = NULL;
-            pai->qtd_chaves--;
-
-            // Libera memória da folha removida
-            free(folha);
-
-            // Caso o pai fique vazio, verifica se é a raiz
-            if (pai == arvore->raiz && pai->qtd_chaves == 0) {
-                arvore->raiz = vizinho;
-                free(pai);
-            }
-        }
-        // Redistribuições
-        else {
-            if (pos_vizinho < i) { // Vizinho à esquerda
-                for (i = folha->qtd_chaves; i > 0; i--) {
-                    folha->chaves[i] = folha->chaves[i - 1];
-                }
-                folha->chaves[0] = vizinho->chaves[vizinho->qtd_chaves - 1];
-                folha->qtd_chaves++;
-                vizinho->chaves[vizinho->qtd_chaves - 1] = -1;
-                vizinho->qtd_chaves--;
-                pai->chaves[pos_vizinho] = folha->chaves[0];
-            } else { // Vizinho à direita
-                folha->chaves[folha->qtd_chaves] = vizinho->chaves[0];
-                folha->qtd_chaves++;
-                for (i = 0; i < vizinho->qtd_chaves - 1; i++) {
-                    vizinho->chaves[i] = vizinho->chaves[i + 1];
-                }
-                vizinho->chaves[vizinho->qtd_chaves - 1] = -1;
-                vizinho->qtd_chaves--;
-                pai->chaves[pos_vizinho] = vizinho->chaves[0];
-            }
-        }
-    }
-
-    printf("Chave %d removida.\n", chave);
-}
-
-No* buscaChave(Arvore* arvore, int chave) {
-    if (!arvore || !arvore->raiz) {
-        return NULL; // Árvore vazia
-    }
-
-    // Encontra a folha onde a chave pode estar
-    No* folha = encontraFolha(arvore->raiz, chave);
-
-    if (!folha) {
-        return NULL; // Nenhuma folha encontrada
-    }
-
-    // Verifica se a chave está presente na folha encontrada
-    for (int i = 0; i < folha->qtd_chaves; i++) {
-        if (folha->chaves[i] == chave) {
-            return folha; // Retorna o nó contendo a chave
-        }
-    }
-
-    return NULL; // Chave não encontrada
-}
-
