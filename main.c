@@ -59,11 +59,11 @@ int main(void){
     insere(arvore, 22);
 
     removeChave(arvore, 10);
-    removeChave(arvore, 11);
-    removeChave(arvore, 7);
-    removeChave(arvore, 5);
-    removeChave(arvore, 8);
-    removeChave(arvore, 6);
+    //removeChave(arvore, 11);
+    //removeChave(arvore, 7);
+    //removeChave(arvore, 5);
+    //removeChave(arvore, 8);
+    //removeChave(arvore, 6);
 
     imprime(arvore->raiz);
 
@@ -404,10 +404,15 @@ void concatenacao(Arvore* arvore, No* no_pai, No* no_esquerda, No* no_direita, i
         // Arruma o pai
         // Se o pai for a primeira chave
         if (i == 0){
-            no_pai->chaves[0] = no_pai->chaves[1];
-            no_pai->qtd_chaves--;
-            no_pai->filhos[1] = no_pai->filhos[2];
-            no_pai->filhos[2] = NULL;
+            if (no_pai->qtd_chaves != 1){
+                no_pai->chaves[0] = no_pai->chaves[1];
+                no_pai->qtd_chaves--;
+                no_pai->filhos[1] = no_pai->filhos[2];
+                no_pai->filhos[2] = NULL;
+            }
+            else{
+                ???
+            }
         }
         // Se o pai for a segunda chave
         else if (i == 1){
